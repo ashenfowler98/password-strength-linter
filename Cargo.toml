@@ -1,0 +1,9 @@
+[package]
+name = "passlint"
+version = "0.1.0"
+edition = "2021"
+authors = ["ashenfowler98"]
+description = "A streaming command-line linter for password strength"
+license = "MIT"
+
+[dependencies]
