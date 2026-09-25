@@ -167,3 +167,127 @@ pub fn check_sequential_run(line: usize, password: &str, findings: &mut Vec<Find
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn messages(findings: &[Finding]) -> Vec<&str> {
+        findings.iter().map(|f| f.message.as_str()).collect()
+    }
+
+    #[test]
+    fn check_length_flags_short_passwords() {
+        let mut findings = Vec::new();
+        check_length(1, "short1", &mut findings);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].severity, Severity::Warn);
+        assert!(findings[0].message.contains("too short"));
+    }
+
+    #[test]
+    fn check_length_counts_chars_not_bytes() {
+        // "café" is 4 chars but 5 bytes; the message should report 4.
+        let mut findings = Vec::new();
+        check_length(1, "café", &mut findings);
+        assert!(findings[0].message.contains("4 <"));
+    }
+
+    #[test]
+    fn check_length_ignores_long_enough_passwords() {
+        let mut findings = Vec::new();
+        check_length(1, "twelvecharspw", &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn check_character_classes_flags_each_missing_class() {
+        let mut findings = Vec::new();
+        check_character_classes(1, "111111", &mut findings);
+        let msgs = messages(&findings);
+        assert!(msgs.contains(&"missing a lowercase letter"));
+        assert!(msgs.contains(&"missing an uppercase letter"));
+        assert!(msgs.contains(&"missing a symbol"));
+        assert!(!msgs.contains(&"missing a digit"));
+    }
+
+    #[test]
+    fn check_character_classes_passes_when_all_classes_present() {
+        let mut findings = Vec::new();
+        check_character_classes(1, "Abc123!@", &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn check_character_classes_whitespace_is_not_a_symbol() {
+        let mut findings = Vec::new();
+        check_character_classes(1, "Abc 123", &mut findings);
+        let msgs = messages(&findings);
+        assert!(msgs.contains(&"missing a symbol"));
+    }
+
+    #[test]
+    fn check_common_password_matches_case_insensitively() {
+        let mut findings = Vec::new();
+        check_common_password(1, "PaSsWoRd", &mut findings);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("common password"));
+    }
+
+    #[test]
+    fn check_common_password_ignores_unlisted_passwords() {
+        let mut findings = Vec::new();
+        check_common_password(1, "correcthorsebatterystaple", &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn check_repeated_run_fires_once_per_run() {
+        let mut findings = Vec::new();
+        check_repeated_run(1, "aaaaaa", &mut findings);
+        assert_eq!(findings.len(), 1);
+        assert!(findings[0].message.contains("'a' x4"));
+    }
+
+    #[test]
+    fn check_repeated_run_ignores_runs_below_threshold() {
+        let mut findings = Vec::new();
+        check_repeated_run(1, "aaa-bbb-ccc", &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn check_repeated_run_flags_two_separate_runs() {
+        let mut findings = Vec::new();
+        check_repeated_run(1, "aaaa1111", &mut findings);
+        assert_eq!(findings.len(), 2);
+    }
+
+    #[test]
+    fn check_sequential_run_flags_ascending_letters() {
+        let mut findings = Vec::new();
+        check_sequential_run(1, "xxabcdxx", &mut findings);
+        assert_eq!(findings.len(), 1);
+    }
+
+    #[test]
+    fn check_sequential_run_flags_descending_digits() {
+        let mut findings = Vec::new();
+        check_sequential_run(1, "pw4321!!", &mut findings);
+        assert_eq!(findings.len(), 1);
+    }
+
+    #[test]
+    fn check_sequential_run_ignores_short_input() {
+        let mut findings = Vec::new();
+        check_sequential_run(1, "abc", &mut findings);
+        assert!(findings.is_empty());
+    }
+
+    #[test]
+    fn check_sequential_run_ignores_non_sequential_input() {
+        let mut findings = Vec::new();
+        check_sequential_run(1, "kj93hf72", &mut findings);
+        assert!(findings.is_empty());
+    }
+}
